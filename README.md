@@ -12,6 +12,4 @@ it only works for multiple files tail output
 
 
 ## Future
-- read from stdin (tail output)
 - support single file (error handling)
-- use clap

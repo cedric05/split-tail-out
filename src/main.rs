@@ -1,21 +1,33 @@
 use std::collections::HashMap;
-use std::env::args;
 use std::fs::File;
+use std::io::stdin;
 use std::io::BufRead;
 use std::io::Write;
 use std::path::Path;
 
 use anyhow::Context;
+use clap::Parser;
+
+/// Split Tail Output
+/// splits tail output into multiple files
+#[derive(Parser)]
+struct CommandArgs {
+    /// provide tail output captured file
+    /// if filename is not provided, input will be captured from stdin
+    #[clap(long, short)]
+    filename: Option<String>,
+}
 
 const FILENAME_REGEX: &str = "==> (?P<filename>.*) <==";
-fn main() -> anyhow::Result<()> {
-    let mut args = args();
-    let filename = args.nth(1).context("filename argument is required")?;
-    let file = File::open(filename).context("unable to open file with given filename")?;
+
+fn process<T>(lines: std::io::Lines<T>) -> anyhow::Result<()>
+where
+    T: std::io::BufRead,
+{
     let re = regex::Regex::new(FILENAME_REGEX).context("regex for sure compiles")?;
     let mut file_name_map = HashMap::new();
     let mut running_file = None;
-    for line in std::io::BufReader::new(file).lines() {
+    for line in lines {
         let mut line = line.context("unable to capture line")?;
         match re.captures(&line) {
             Some(cap) => {
@@ -50,4 +62,17 @@ fn main() -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+fn main() -> anyhow::Result<()> {
+    let args = CommandArgs::parse();
+    match args.filename {
+        Some(filename) => {
+            let file = File::open(filename).context("unable to open file with given filename")?;
+            process(std::io::BufReader::new(file).lines())
+        }
+        None => {
+            let stdin_file = stdin();
+            process(stdin_file.lines())
+        }
+    }
 }
